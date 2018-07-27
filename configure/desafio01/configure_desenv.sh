@@ -2,6 +2,35 @@
 
 . lib_configure.sh
 
+STEP git config --system push.default simple
+STEP git config --system color.ui auto
+
+LOCALUSER="jose"
+GIT_FILE="/home/"$LOCALUSER"/.gitconfig"
+
+if ! RUN git config --file "$GIT_FILE" user.email ; then
+	STEP touch "$GIT_FILE"
+	STEP chown "${LOCALUSER}.${LOCALUSER}" "$GIT_FILE"
+	STEP chmod 644 "$GIT_FILE"
+
+	PROMPT "Digite o valor para git/user.name" || exit 1
+	GIT_USERNAME="$REPLY"
+	PROMPT "Digite o valor para git/user.email" || exit 1
+	GIT_USEREMAIL="$REPLY"
+
+	echo "Git/user.name  = $GIT_USERNAME"
+	echo "Git/user.email = $GIT_USEREMAIL"
+	CONFIRM "Desejar atualizar o arquivo .gitconfig com os valores acima?"
+	case $? in
+		2) exit 1 ;; # EOF
+		1) true ;; 
+		0)
+			STEP git config --file "$GIT_FILE" user.name  "$GIT_USERNAME"
+			STEP git config --file "$GIT_FILE" user.email "$GIT_USERMAIL"
+			;;
+	esac
+fi
+
 CFG_JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk"
 
 STEP yum -y install java-1.8.0-openjdk-devel rabbitmq-server

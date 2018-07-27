@@ -141,3 +141,46 @@ local h1 h2
 	rm -f "$tmpfile"
 }
 
+PROMPT()
+{
+local msg="$1"
+local linha
+	export REPLY=""
+	while true ; do
+		printf "%s: " "$msg"
+		read linha || {
+			stdout "[EOF]"
+			return 1
+		}
+		if [ -z "$linha" ] ; then
+			stderr " Aviso: o valor não pode ficar em branco"
+			continue
+		fi
+		export REPLY="$linha"
+		return 0
+	done
+}
+
+CONFIRM()
+{
+local msg="$1"
+local linha
+local c
+	while true ; do
+		printf "%s [y/n] " "$msg"
+		read linha || {
+			stdout "[EOF]"
+			return 2
+		}
+		if [ -z "$linha" ] ; then
+			continue
+		fi	
+		c="${linha:0:1}"
+		echo "[c=$c]"
+		case $c in
+			y|Y|s|S|1|t|T) stdout "[yes]" ; return 0 ;;
+			n|N|0|f|F)     stdout "[no]" ; return 1 ;;
+			*) stderr "Aviso: opção inválida" ;;
+		esac
+	done
+}

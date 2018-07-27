@@ -32,7 +32,12 @@ else
 fi
 ADD_LINE "/etc/profile.d/jasf-sts.sh" 'export PATH=$PATH:'"${INSTBASE}/${PKG_BIN_DIR}" "^export PATH="
 
-cat >"/home/jose/.local/share/applications/SpringToolSuite.desktop" <<EOF
+
+file="/home/jose/.local/share/applications/SpringToolSuite.desktop"
+
+STEP sudo -u jose mkdir -p /home/jose/.local/share/applications
+
+cat >"$file" <<EOF
 #!/usr/bin/env xdg-open
 [Desktop Entry]
 Name=Spring Tool Suite
@@ -46,5 +51,7 @@ Type=Application
 Categories=Development;IDE
 StartupNotify=true
 EOF
+
+STEP chown jose.jose "$file"
 
 OK "Concluído!"

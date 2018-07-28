@@ -16,7 +16,7 @@ STEP augtool 'set /files/etc/sysconfig/selinux/SELINUX permissive'
 STEP yum -y groupinstall "X Window System" "Fonts"
 
 STEP yum -y install caja mate-desktop "mate-icon*" "mate-theme*" "mate-*daemon" mate-terminal "gnome-keyring*" "mate-power*"
-STEP yum -y install pluma seahorse chromium
+STEP yum -y install pluma seahorse chromium evince
 STEP augtool '
 	set /files/etc/sysconfig/desktop/DESKTOP ""
 	set /files/etc/sysconfig/desktop/PREFERRED "mate-session"'
@@ -25,6 +25,7 @@ STEP yum -y install lightdm
 STEP systemctl enable lightdm
 STEP systemctl set-default graphical.target
 
+STEP mkdir -p /dados/bin
 STEP mkdir -p /dados/apps
 STEP mkdir -p /dados/temp
 STEP chmod 777 /dados

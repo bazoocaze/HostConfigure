@@ -33,7 +33,7 @@ fi
 
 CFG_JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk"
 
-STEP yum -y install java-1.8.0-openjdk-devel rabbitmq-server
+STEP yum -y install java-1.8.0-openjdk-devel rabbitmq-server mariadb
 
 ADD_LINE "/etc/profile.d/jasf.sh" "export JAVA_HOME=${CFG_JAVA_HOME}" "^export JAVA_HOME="
 ADD_LINE "/etc/profile.d/jasf.sh" "export PATH=\$PATH:/dados/bin"
@@ -44,11 +44,11 @@ ADD_LINE "/etc/profile.d/jasf.sh" "export PATH=\$PATH:/dados/bin"
 STEP systemctl enable rabbitmq-server
 STEP systemctl start  rabbitmq-server
 
-if ! RUN type -p "rabbitmqadmin" ; then
+file="/dados/bin/rabbitmqadmin"
+if [ ! -x "$file" ] ; then
 	STEP rabbitmq-plugins enable rabbitmq_management
 	STEP systemctl daemon-reload
 	STEP systemctl restart rabbitmq-server
-	file="/dados/bin/rabbitmqadmin"
 	RUN curl -f http://localhost:15672/cli/rabbitmqadmin -o "$file" || {
 		RUN rm -f "$file"
 		DIE "Impossível baixar o arquivo"

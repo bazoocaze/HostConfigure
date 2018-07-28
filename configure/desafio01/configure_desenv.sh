@@ -26,7 +26,7 @@ if ! RUN git config --file "$GIT_FILE" user.email ; then
 		1) true ;; 
 		0)
 			STEP git config --file "$GIT_FILE" user.name  "$GIT_USERNAME"
-			STEP git config --file "$GIT_FILE" user.email "$GIT_USERMAIL"
+			STEP git config --file "$GIT_FILE" user.email "$GIT_USEREMAIL"
 			;;
 	esac
 fi

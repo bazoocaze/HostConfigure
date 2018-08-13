@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LIB_CONFIGURE_VERSION="1.01 2018-08-01 15:14"
+LIB_CONFIGURE_VERSION="1.02 2018-08-10 11:55"
 
 CL_NORMAL=$(echo -n -e "\e[0m")
 CL_ERROR=$(echo -n -e "\e[41m")
@@ -9,6 +9,7 @@ CL_ITEM=$(echo -n -e "\e[44m")
 CL_OK=$(echo -n -e "\e[30;42m")
 CL_WARNING=$(echo -n -e "\e[30;43m")
 CL_DEBUG=$(echo -n -e "\e[96m")
+CL_VERBOSE="${CL_DEBUG}"
 CL_GROUP=$(echo -n -e "\e[30;43m")
 
 
@@ -107,6 +108,12 @@ stdout "*** $*"
 DEBUG()
 {
 is_debug && MSG "${CL_DEBUG}DEBUG: ${*}${CL_NORMAL}"
+}
+
+
+VERBOSE()
+{
+is_verbose && MSG "${CL_VERBOSE}VERBOSE: ${*}${CL_NORMAL}"
 }
 
 
@@ -356,27 +363,46 @@ local path=$(dirname "$file")
 }
 
 
+get_download_hash()
+{
+local url="$1"
+local file="$2"
+
+	[ -z "$1" -o -z "$2" ] && ASSERT "get_download_hash(url=$1, file=$2): parâmetros incorretos"
+
+	{
+		echo "${url}"    | md5sum | cut -f1 -d" "
+		md5sum "${file}" | cut -f1 -d" "
+	} | md5sum | cut -f1 -d" "
+}
+
+
 DOWNLOAD_FILE()
 {
 local url="$1"
 local output="$2"
 local okfile="${output}-download-ok"
-local okurl
+local h1 h2
 
 	[ -z "${url}" -o -z "${output}" ] && ASSERT "DOWNLOAD_FILE(url=$1, output=$2): parâmetros incorretos"
 
 	ITEM "DOWNLOAD_FILE: baixando a url ${url}"
 
 	if [ -f "$output" -a -f "${okfile}" ] ; then
-	   okurl=$(cat "${okfile}")
-	   if [ "${okurl}" = "$url" ] ; then
+		h1=$(get_download_hash "${url}" "${output}")
+	   h2=$(cat "${okfile}")
+		DEBUG "h1=${h1}  h2=${h2}"
+	   if [ "${h1}" = "${h2}" ] ; then
 	      OK "Arquivo já baixado de ${url}"
 	      return 0
+		else
+			INFO "Hash do download anterior não confere (ou URL mudou). Baixando novamente..."
 	   fi
 	fi
 	rm -f "${okfile}" || DIE "Impossível apagar o arquivo ${okfile}"
-	STEP curl --retry 12 --retry-delay 15 -C - -f -o "${output}" "${url}"
-	echo "${url}" >"${okfile}"
+	rm -f "${output}" || DIE "Impossível apagar o download anterior: ${output}"
+	STEP curl --retry 12 --retry-delay 15 -f -o "${output}" "${url}"
+	get_download_hash "${url}" "${output}" >"${okfile}"
 	OK "Download concluído"
 }
 
@@ -408,6 +434,303 @@ local h1 h2
 }
 
 
+camel_case()
+{
+local input="$1"
+	printf "%s" "$input" | sed -r 's/(^|[^[:alpha:]])(\w)/\1\U\2/g;'
+}
+
+
+get_icon_for_program()
+{
+local exe="$1"
+local name dir item list nome tipo
+
+	[ -z "$1" ] && ASSERT "get_icon_for_program(exe=$1): parâmetros inválidos"
+
+	name="$(basename "$exe")"
+	dir="$(dirname "$exe")"
+
+	namelist=("${name}" "icon")
+	typelist=("png" "xpm")
+
+	for nome in "${namelist[@]}" ; do
+		for tipo in "${typelist[@]}" ; do
+			path="${dir}/${nome}.${tipo}"
+			if [ -f "$path" ] ; then
+				DEBUG "Encontrado o ícone $path para o programa $exe"
+				echo "$path"
+				return 0
+			fi
+		done
+	done
+
+	namelist=("application-x-executable.png" "*executable*.png")
+	for item in "${namelist[@]}" ; do
+		path=$(find /usr/share/icons -type f -name "${item}" | head -n 1)
+		if [ -n "$path" -a -f "$path" ] ; then
+			DEBUG "Encontrado o ícone $path para o programa $exe"
+			echo "$path"
+			return 0
+		fi
+	done
+
+	WARN "Não foi possível encontrar um ícone para o programa $exe"
+	return 1
+}
+
+
+
+get_desktop_menu_dir()
+{
+local path="${HOME}/.local/share/applications"
+	[ ! -d "$path" ] && WARN "Diretório de menus não encontrado: $path"
+	echo "$path"
+}
+
+
+get_boolean()
+{
+local input="$1"
+local out_true="${2:-true}"
+local out_false="${3:-false}"
+
+	[ -z "$1" ] && ASSERT "get_boolean(input=$1): parâmetros inválidos"
+
+	case "$input" in
+		1|on|true|t|yes|y)  echo "${out_true}" ; return 0 ;;
+		0|off|false|t|no|n) echo "${out_false}" ; return 0 ;;
+		*) ERROR "Entrada booleana inválida: $input" ; echo "${out_false}" ; return 1 ;;
+	esac
+}
+
+
+DESKTOP_SHORTCUT()
+{
+local target="$1"
+local appname="$2"
+local appexe="$3"
+local appcomment appicon
+local appcategories="Utility"
+local appterminal="false"
+
+	[ -z "$1" -o -z "$2" -o -z "$3" ] && ASSERT "DESKTOP_SHORTCUT(target=$1, appname=$2, appexe=$3): parâmetros inválidos"
+
+	ITEM "DESKTOP SHORTCUT: $appname $appexe"
+
+	shift 3
+
+	while (( $# > 0 )) ; do
+		op="$1"
+		shift
+		case "$op" in
+			--comment)    appcomment="$1" ; shift ;;
+			--icon)       appicon="$1" ; shift ;;
+			--categories) appcategories="$1" ; shift ;;
+			--terminal)   appterminal=$(get_boolean "$1") ; shift ;;
+			*)            DIE "Opção inválida: $op"
+		esac
+	done
+
+	[ -z "$appicon" ] && appicon="$(get_icon_for_program "$appexe")"
+
+	target="$(get_desktop_menu_dir)/$(basename "$target")"
+
+{
+cat <<EOF
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Name=${appname}
+Comment=${appcomment}
+Exec=${appexe}
+Icon=${appicon}
+Type=Application
+Categories=${appcategories}
+Terminal=${appterminal}
+
+EOF
+} >"$target"
+
+	OK "Atalho criado com sucesso: $appname"
+
+	return 0
+}
+
+
+get_writable_dir()
+{
+local adir=("$@")
+local item subdir
+
+	for item in "${adir[@]}" ; do
+		if [ -w "$item" ] ; then
+			echo "$item"
+			return 0
+		fi
+	done
+
+	for item in "${adir[@]}" ; do
+		subdir="$(dirname "$item")"
+		if [ -w "$subdir" ] ; then
+			if mkdir -p "${item}" ; then
+				echo "$item"
+				return 0
+			else
+				WARN "Não foi possível criar o diretório: $item"
+			fi
+		fi
+	done
+	return 1
+}
+
+
+get_app_dir()
+{
+	get_writable_dir "/dados/apps" "${HOME}/.apps" || {
+		DIE "Não foi possível determinar o diretório para APPs. Os candidatos são: $*"
+	}
+}
+
+
+get_download_dir()
+{
+	get_writable_dir "/dados/downloads" "${HOME}/Downloads" "/tmp/downloads" || {
+		DIE "Não foi possível preparar um diretório para downloads. Os candidatos são: $*"
+	}
+}
+
+
+INSTALL_FROM_URL()
+{
+local url="$1"
+local remotefilename filetype progname progversion downloaddir downloadfilename appdir installdir 
+local item ret old
+local cfgtool cfgapp cfgbin cfgautobin
+local bindirs applist
+
+	[ -z "$1" ] && ASSERT "INSTALL_FROM_URL(url=$1): parâmetros inválidos"
+
+	shift
+
+	if [ $# = 0 ] ; then
+		cfgautobin=("bin" "sbin")	
+		DEBUG "Pesquisa automática de diretórios de ferramentas ativada para ${cfgbin[*]}"
+	fi
+
+	while (( $# > 0 )) ; do
+		op="$1"
+		shift
+		case "$op" in
+			--tool)     cfgtool+=("$1") ; shift ;;
+			--app)      cfgapp+=("$1") ; shift ;;
+			--bin)      cfgbin+=("$1") ; shift ;;
+			--auto-bin) cfgautobin=("bin" "sbin") ;;
+		esac
+	done
+
+	remotefilename="$(basename "$url")"
+
+	case "$remotefilename" in
+		*.tar.gz) filetype="tgz" ;;
+		*.tgz)    filetype="tgz" ;;
+		*)        ERROR "Tipo de arquivo não suportado para $remotefilename" ; return 1 ;;
+	esac
+
+	progname="$(echo "$remotefilename" | sed 's/-\?[[:digit:]].*//g;')"
+	progversion="$(echo "$remotefilename" | sed -n 's/[^[:digit:]]*\([[:digit:]]\+\(\.[[:digit:]]\+\)\+\).*/\1/p;')"
+	downloaddir="$(get_download_dir)" || return 1
+	downloadfilename="${downloaddir}/${progname}.${filetype}"
+	appdir="$(get_app_dir)" || return 1
+	installdir="${appdir}/${progname}"
+
+	DOWNLOAD_FILE "$url" "${downloadfilename}"
+
+	if [ -d "${installdir}" ] ; then
+		old="${installdir}.old"
+		if [ -d "$old" ] ; then
+			EXEC rm -Rf "${old}"
+		fi
+		EXEC mv -f "${installdir}" "${old}"
+	fi
+	EXEC mkdir -p "${installdir}"
+
+	# descompactar o arquivo
+	case "$filetype" in
+		tgz) tar zxf "${downloadfilename}" -C "${installdir}" ;;
+		*)   ASSERT "Tipo de arquivo não preparado: $filetype" ;;
+	esac
+
+	bindirs=()
+	applist=()
+
+	for item in "${cfgtool[@]}" ; do
+		ret=$(find "${installdir}" -type f -name "$item" | head -n 1)
+		if [ -n "$ret" ] ; then
+			INFO "Encontrada ferramenta $item em $ret"
+			bindirs+=("$(dirname "$ret")")
+		else
+			WARN "Ferramenta $item não encontrada na instalação em ${installdir}"
+		fi
+	done
+	
+	for item in "${cfgapp[@]}" ; do
+		ret=$(find "${installdir}" -type f -name "$item" | head -n 1)
+		if [ -n "$ret" ] ; then
+			INFO "Encontrado programa $item em $ret"
+			applist+=("$ret")
+		else
+			WARN "Programa '${item}' não encontrado na instalação em ${installdir}"
+		fi
+	done
+
+	for item in "${cfgbin[@]}" ; do
+		ret=$(find "${installdir}" -type d -name "$item" | head -n 1)
+		if [ -n "$ret" ] ; then
+			INFO "Encontrado diretório de ferramentas em $ret"
+			bindirs+=("$ret")
+		else
+			WARN "Diretório de ferramentas '$item' não encontrado na instalação em ${installdir}"
+		fi
+	done	
+
+	for item in "${cfgautobin[@]}" ; do
+		ret=$(find "${installdir}" -type d -name "$item" | head -n 1)
+		if [ -n "$ret" ] ; then
+			INFO "Encontrado diretório de ferramentas em $ret"
+			bindirs+=("$ret")
+		else
+			DEBUG "Diretório de ferramentas (auto) $item não encontrado na instalação em ${installdir}"
+		fi
+	done	
+
+	# criação de atalho
+	for item in "${applist}" ; do
+		false
+	done
+
+	
+	{
+	cat <<EOF
+remotefilename = $remotefilename
+filetype = $filetype
+progname = $progname
+progversion = $progversion
+downloaddir = $downloaddir
+downloadfilename = $downloadfilename
+appdir = $appdir
+installdir = $installdir
+cfgtool = ${cfgtool[*]}
+cfgapp = ${cfgapp[*]}
+cfgbin = ${cfgbin[*]}
+bindirs = ${bindirs[*]}
+applist = ${applist[*]}
+EOF
+	} | column -t -s '='
+
+}
+
+
 internal_run_template()
 {
 local name="$1"
@@ -431,24 +754,29 @@ local lasttarget="$CONFTARGET"
 
 TEMPLATE()
 {
-local name="$1"
-local prefix=("" "configure_" "template_")
+local inputname="$1"
+local prefix=("" "configure_" "template_" "install_")
 local suffix=("" ".sh")
+local templatename templatesubdir
 local path file pre suf ret
 
-	[ -z "$name" ] && ASSERT "TEMPLATE(name=$1): parâmetros inválidos"
+	[ -z "$inputname" ] && ASSERT "TEMPLATE(inputname=$1): parâmetros inválidos"
 
 	shift
 
-	if [ -x "$name" ] ; then
-		internal_run_template "$(basename "${name}")" "${name}" "$@"
+	templatename="$(basename "$inputname")"
+	templatesubdir="$(dirname "$inputname")"
+
+	if [ -x "$inputname" ] ; then
+		internal_run_template "${templatename}" "${inputname}" "$@"
 		return $?
 	fi
 
    for pre in "${prefix[@]}" ; do
       for suf in "${suffix[@]}" ; do
-         file="${pre}${name}${suf}"
-         path="${DIR_TEMPLATES}/${file}"
+         file="${pre}${templatename}${suf}"
+         path="${DIR_TEMPLATES}/${templatesubdir}/${file}"
+			VERBOSE " template: $path"
 			if [ -x "$path" ] ; then
 				internal_run_template "${file}" "${path}" "$@"
 				return $?
@@ -456,7 +784,7 @@ local path file pre suf ret
       done
    done
 
-	DIE "Template ${name} não encontrado"
+	DIE "Template ${inputname} não encontrado"
 }
 
 
@@ -565,6 +893,8 @@ return 0
 
 cmd_help_lib_configure()
 {
+echo "Biblioteca lib_configure.sh"
+echo "Versão ${LIB_CONFIGURE_VERSION}"
 echo "Uso: [opções] <comando>"
 echo "Opções diponíveis:"
 echo " -d       mostra informações de debug"
@@ -575,15 +905,21 @@ echo " --no     responde não para as perguntas e confirmações"
 echo "Comandos:"
 echo " CONFTARGET=[install|remove|undo|set-default]"
 echo "Variáveis disponíveis para o script:"
-printf " %-30s %s\n" "YES=$YES"               "definido pela opção -y"
-printf " %-30s %s\n" "VERBOSE=$VERBOSE"       "definido pela opção -v"
-printf " %-30s %s\n" "DEBUG=$DEBUG"           "definido pela opção -d"
-printf " %-30s %s\n" "DRYRUN=$DRYRUN"         "definido pela opção -n"
-printf " %-30s %s\n" "CONFTARGET=$CONFTARGET" "target informado pelo usuário"
 
-printf " %-30s %s\n" "diretório da biblioteca"   "DIR_LIBCFG=$DIR_LIBCFG"
-printf " %-30s %s\n" "diretório dos extra files" "DIR_EXTRA_FILES=$DIR_EXTRA_FILES"
-printf " %-30s %s\n" "diretório dos templates"   "DIR_TEMPLATES=$DIR_TEMPLATES"
+{
+echo "YES=$YES"                  "|(definido pela opção -y)"
+echo "VERBOSE=$VERBOSE"          "|(definido pela opção -v)"
+echo "DEBUG=$DEBUG"              "|(definido pela opção -d)"
+echo "DRYRUN=$DRYRUN"            "|(definido pela opção -n)"
+echo "CONFTARGET=$CONFTARGET"    "|(target informado pelo usuário)"
+} | column -t -s '|'
+
+{
+echo "DIR_LIBCFG=$DIR_LIBCFG"           "|(diretório da biblioteca)"
+echo "DIR_EXTRA_FILES=$DIR_EXTRA_FILES" "|(diretório dos extra files)"
+echo "DIR_TEMPLATES=$DIR_TEMPLATES"     "|(diretório dos templates)"
+} | column -t -s '|'
+
 exit 1
 }
 

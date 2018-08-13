@@ -11,7 +11,7 @@ STEP yum -y install epel-release
 
 #----------------------------------------------------------------------
 GROUP "Ferramentas para servidor físico"
-STEP yum -y install lm_sensors smartmontools atop htop
+STEP yum -y install lm_sensors smartmontools atop htop iotop
 STEP sensors-detect --auto
 STEP sensors
 
@@ -27,9 +27,11 @@ set /files/etc/lvm/lvm.conf/global/dict/thin_check_options/list/3/str "--skip-ma
 
 
 #----------------------------------------------------------------------
+GROUP "Ativar SMART em todos os discos compatíveis"
 for d in /dev/sd? ; do
 	RUN smartctl -T permissive --smart=on --offlineauto=on --saveauto=on $d
 done
+
 
 OK "Concluído"
 

@@ -10,7 +10,7 @@ case "$CONFTARGET" in
 		STEP  yum -y install epel-release augeas
 
 		GROUP "MATE Desktop"
-		STEP  yum -y install mate-desktop "mate-*daemon" "mate-icon*" "mate-theme*" mate-terminal xterm caja "gnome-keyring*" mate-power-manager mate-screensaver
+		STEP  yum -y install mate-desktop "mate-*daemon" "mate-icon*" "mate-theme*" mate-terminal xterm caja "gnome-keyring*" mate-power-manager mate-screensaver mintmenu
 		STEP  yum -y install pluma evince seahorse
 		STEP  yum -y install chromium
 		STEP  touch /etc/sysconfig/desktop

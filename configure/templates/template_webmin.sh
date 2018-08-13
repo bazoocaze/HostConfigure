@@ -18,16 +18,6 @@ fi
 
 [ ! -d "$YUMREPOS" ] && DIE "Diretório não encontrado: $YUMREPOS"
 
-# {
-# cat <<EOF
-# [Webmin]
-# name=Webmin Distribution Neutral
-# #baseurl=http://download.webmin.com/download/yum
-# mirrorlist=http://download.webmin.com/download/yum/mirrorlist
-# enabled=1
-# EOF
-# } | WRITE_FILE "$YUMREPOS/webmin.repo"
-
 STEP                                    yum -y install curl perl-IO-Pty-Easy
 STEPI "Baixando chave jcameron-key.asc" curl -f 'http://www.webmin.com/jcameron-key.asc' -o "/tmp/jcameron-key.asc"
 STEPI "Importando chave"                rpm --import "/tmp/jcameron-key.asc"

@@ -9,5 +9,5 @@ STEP  yum -y install epel-release
 GROUP "Minimal X Window System"
 STEP  yum -y groupinstall "X Window System" "Fonts"
 
-INFO "Para poder usar, é necessário instalar pelo menos um Window Manager (scripts configure_wm_*)"
+INFO "Para poder usar, é necessário instalar pelo menos um Window Manager (scripts *_desktop)"
 

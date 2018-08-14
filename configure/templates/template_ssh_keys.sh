@@ -22,5 +22,5 @@ while read tipo chave tag ; do
 		ADD_LINE "/root/.ssh/authorized_keys"      "$tipo $chave $tag" "$chave"
 		ADD_LINE "/home/jose/.ssh/authorized_keys" "$tipo $chave $tag" "$chave"
 	fi
-done <<<$(grep -v '#.*' "${SOURCE_KEYS}")
+done <<<"$(grep -v '#.*' "${SOURCE_KEYS}")"
 

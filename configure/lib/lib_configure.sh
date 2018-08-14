@@ -248,6 +248,21 @@ STEP()
 }
 
 
+SUB_STEP()
+{
+local info="$*"
+local ret
+	[ -z "$*" ] && ASSERT "SUB_STEP($*): parâmetros inválidos"
+	DEBUG " SUB-PASSO: ${info}"
+	EXECD "$@" ; ret=$?
+	is_dryrun && return 0
+	if [ "$ret" != 0 ] ; then
+		ERROR "[exit=$ret]"
+		DIE "Falha no sub-passo: ${info}"
+	fi
+}
+
+
 ADD_LINE()
 {
 local file="$1"
@@ -401,7 +416,8 @@ local h1 h2
 	fi
 	rm -f "${okfile}" || DIE "Impossível apagar o arquivo ${okfile}"
 	rm -f "${output}" || DIE "Impossível apagar o download anterior: ${output}"
-	STEP curl --retry 12 --retry-delay 15 -f -o "${output}" "${url}"
+	# STEP curl --retry 12 --retry-delay 15 -f -o "${output}" "${url}"
+	STEP wget -O "${output}" "${url}"
 	get_download_hash "${url}" "${output}" >"${okfile}"
 	OK "Download concluído"
 }
@@ -437,7 +453,13 @@ local h1 h2
 camel_case()
 {
 local input="$1"
-	printf "%s" "$input" | sed -r 's/(^|[^[:alpha:]])(\w)/\1\U\2/g;'
+	printf "%s" "$input" | to_camel_case
+}
+
+
+to_camel_case()
+{
+sed -r 's/(^|[^[:alpha:]])(\w)/\1\U\2/g;'
 }
 
 
@@ -484,8 +506,12 @@ local name dir item list nome tipo
 get_desktop_menu_dir()
 {
 local path="${HOME}/.local/share/applications"
-	[ ! -d "$path" ] && WARN "Diretório de menus não encontrado: $path"
 	echo "$path"
+	[ ! -d "$path" ] && {
+		WARN "Diretório de menus não encontrado: $path"
+		return 1
+	}
+	return 0
 }
 
 
@@ -513,6 +539,7 @@ local appexe="$3"
 local appcomment appicon
 local appcategories="Utility"
 local appterminal="false"
+local desktop_dir
 
 	[ -z "$1" -o -z "$2" -o -z "$3" ] && ASSERT "DESKTOP_SHORTCUT(target=$1, appname=$2, appexe=$3): parâmetros inválidos"
 
@@ -534,7 +561,13 @@ local appterminal="false"
 
 	[ -z "$appicon" ] && appicon="$(get_icon_for_program "$appexe")"
 
-	target="$(get_desktop_menu_dir)/$(basename "$target")"
+	desktop_dir="$(get_desktop_menu_dir)" || return 1
+
+	target="${desktop_dir}/$(basename "$target")" 
+
+	if [ -f "$target" ] ; then
+		EXEC rm -f "$target"
+	fi
 
 {
 cat <<EOF
@@ -550,7 +583,7 @@ Categories=${appcategories}
 Terminal=${appterminal}
 
 EOF
-} >"$target"
+} >"$target" 
 
 	OK "Atalho criado com sucesso: $appname"
 
@@ -601,31 +634,52 @@ get_download_dir()
 }
 
 
+create_sh()
+{
+local file="$1"
+	[ -z "$1" ] && ASSERT "create_sh(file=$1): parâmetros inválidos"
+	if [ ! -f "$file" ] ; then
+		echo "#!/bin/bash" >"$file" || DIE "Impossível criar o arquivo: $file"
+	fi
+	SUB_STEP chmod 775 "$file"
+}
+
+
 INSTALL_FROM_URL()
 {
 local url="$1"
 local remotefilename filetype progname progversion downloaddir downloadfilename appdir installdir 
 local item ret old
-local cfgtool cfgapp cfgbin cfgautobin
+local cfgtool cfgapp cfgbin cfgautobin cfgcategories="Other"
+local nicename
 local bindirs applist
+local libid="lib_configure"
+local hargs hurl hargs_conf hurl_conf
+local instfile
 
 	[ -z "$1" ] && ASSERT "INSTALL_FROM_URL(url=$1): parâmetros inválidos"
 
 	shift
+
+	ITEM "INSTALAR DA URL: $url"
 
 	if [ $# = 0 ] ; then
 		cfgautobin=("bin" "sbin")	
 		DEBUG "Pesquisa automática de diretórios de ferramentas ativada para ${cfgbin[*]}"
 	fi
 
+	hargs="$(echo "${url} $*" | md5sum | cut -f1 -d ' ')"
+	hurl="$(echo "${url}" | md5sum | cut -f1 -d ' ')"
+
 	while (( $# > 0 )) ; do
 		op="$1"
 		shift
 		case "$op" in
-			--tool)     cfgtool+=("$1") ; shift ;;
-			--app)      cfgapp+=("$1") ; shift ;;
-			--bin)      cfgbin+=("$1") ; shift ;;
-			--auto-bin) cfgautobin=("bin" "sbin") ;;
+			--tool)       cfgtool+=("$1") ; shift ;;
+			--app)        cfgapp+=("$1") ; shift ;;
+			--bin)        cfgbin+=("$1") ; shift ;;
+			--auto-bin)   cfgautobin=("bin" "sbin") ;;
+			--categories) cfgcategories="$1" ; shift ;;
 		esac
 	done
 
@@ -634,7 +688,8 @@ local bindirs applist
 	case "$remotefilename" in
 		*.tar.gz) filetype="tgz" ;;
 		*.tgz)    filetype="tgz" ;;
-		*)        ERROR "Tipo de arquivo não suportado para $remotefilename" ; return 1 ;;
+		*.zip)    filetype="zip" ;;
+		*)        ASSERT "Tipo de arquivo não suportado para $remotefilename" ;;
 	esac
 
 	progname="$(echo "$remotefilename" | sed 's/-\?[[:digit:]].*//g;')"
@@ -643,23 +698,48 @@ local bindirs applist
 	downloadfilename="${downloaddir}/${progname}.${filetype}"
 	appdir="$(get_app_dir)" || return 1
 	installdir="${appdir}/${progname}"
+	nicename="$(echo "${progname}" | to_camel_case | tr '_-' '  ')"
 
-	DOWNLOAD_FILE "$url" "${downloadfilename}"
-
-	if [ -d "${installdir}" ] ; then
-		old="${installdir}.old"
-		if [ -d "$old" ] ; then
-			EXEC rm -Rf "${old}"
-		fi
-		EXEC mv -f "${installdir}" "${old}"
+	instfile="${installdir}/INSTALL_INFO"
+	if [ -f "$instfile" ] ; then
+		INFO "Encontrada instalação existente de ${progname} em ${installdir}"
+		hargs_conf="$(cat "$instfile" | grep "^ARGS" | cut -f2 -d' ')"
+		hurl_conf="$(cat "$instfile"  | grep "^URL"  | cut -f2 -d' ')"
+		# if [ "${hargs}" = "${hargs_conf}" ]; then
+		# 	OK "Nenhuma alteração necessária. Instalação já configurada: ${progname}-${progversion}"
+		# 	return 0
+		# else
+		# 	INFO "Nova instalação necessária para ${progname} em ${installdir}"
+		# fi
 	fi
-	EXEC mkdir -p "${installdir}"
 
-	# descompactar o arquivo
-	case "$filetype" in
-		tgz) tar zxf "${downloadfilename}" -C "${installdir}" ;;
-		*)   ASSERT "Tipo de arquivo não preparado: $filetype" ;;
-	esac
+	if [ "${hurl}" != "${hurl_conf}" ] ; then
+		DOWNLOAD_FILE "$url" "${downloadfilename}"
+
+		if [ -d "${installdir}" ] ; then
+			old="${installdir}.old"
+			if [ -d "$old" ] ; then
+				SUB_STEP rm -Rf "${old}"
+			fi
+			SUB_STEP mv -f "${installdir}" "${old}"
+		fi
+		SUB_STEP mkdir -p "${installdir}"
+
+		# descompactar o arquivo
+		case "$filetype" in
+			tgz)
+				SUB_STEP tar zxf "${downloadfilename}" -C "${installdir}"
+				;;
+
+			zip)
+				SUB_STEP unzip "${downloadfilename}" -d "${installdir}"
+				;;
+	
+			*) ASSERT "Tipo de arquivo não preparado: $filetype" ;;
+		esac
+	else
+		INFO "A URL não mudou. Não é necessário fazer novo download e descomprimir."
+	fi
 
 	bindirs=()
 	applist=()
@@ -704,30 +784,46 @@ local bindirs applist
 		fi
 	done	
 
-	# criação de atalho
-	for item in "${applist}" ; do
-		false
+	# criação de atalhos
+	for item in "${applist[@]}" ; do
+		name="${nicename}"
+		if [ "${#applist[@]}" != 1 ] ; then
+			name="${name} - $(basename "$item")"
+		elif [ -n "$progversion" ] ; then
+			name="${name} ${progversion}"
+		fi
+		DESKTOP_SHORTCUT "${libid}-${progname}-$(basename "$item").desktop" "$name" "$item" --categories "${cfgcategories}"
 	done
 
-	
-	{
-	cat <<EOF
-remotefilename = $remotefilename
-filetype = $filetype
-progname = $progname
-progversion = $progversion
-downloaddir = $downloaddir
-downloadfilename = $downloadfilename
-appdir = $appdir
-installdir = $installdir
-cfgtool = ${cfgtool[*]}
-cfgapp = ${cfgapp[*]}
-cfgbin = ${cfgbin[*]}
-bindirs = ${bindirs[*]}
-applist = ${applist[*]}
-EOF
-	} | column -t -s '='
+	if [ "${#bindirs[@]}" != 0 ] ; then
+		ret='$PATH'
 
+		# registrar diretórios bin	
+		for item in "${bindirs[@]}" ; do
+			ret="${ret}:${item}"
+		done
+
+		if [ -w "/etc/profile.d" ] ; then
+			path="/etc/profile.d/${libid}.sh"
+		else
+			path="${HOME}/.bash_profile"
+		fi
+
+		create_sh "$path"
+
+		ADD_LINE "$path" "export PATH=${ret}" "^export PATH=\$PATH:${installdir}.*"
+	fi
+
+	if [ "${hargs}" != "${hargs_conf}" ] ; then
+		# Criar o marcado de instalado/configurado com sucesso
+		{
+			echo "ARGS $hargs"
+			echo "URL $hurl"
+		} >"${instfile}"
+	fi
+
+	OK "Instalação concluída com sucesso: ${progname}-${progversion} em ${installdir}"
+	
 }
 
 

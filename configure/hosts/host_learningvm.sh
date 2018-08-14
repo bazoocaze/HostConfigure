@@ -12,6 +12,8 @@ TEMPLATE graphic_server
 TEMPLATE display_manager
 TEMPLATE mate_desktop
 TEMPLATE mate_desktop set-default
+
+STEP yum -y install unzip
 }
 
 

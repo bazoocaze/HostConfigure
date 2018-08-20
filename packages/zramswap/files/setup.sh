@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-VERSION="1.01 2018-08-20 15:50"
+VERSION="1.02 2018-08-20 16:40"
 APPNAME="zramswap"
 DEBUG=0
 DRYRUN=0

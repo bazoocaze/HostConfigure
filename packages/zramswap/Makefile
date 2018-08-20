@@ -18,8 +18,9 @@ install: $(TARGET)
 remove: $(TARGET)
 	sudo ./$(TARGET) remove
 
-help:
-	@echo "Targets: all $(TARGET) clean install remove help"
+reinstall: $(TARGET)
+	sudo ./$(TARGET) reinstall
 
-	
+help:
+	@echo "Targets: all $(TARGET) clean help install remove reinstall"
 

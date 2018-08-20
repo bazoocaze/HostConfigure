@@ -4,8 +4,8 @@ After=swap.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/libexec/anaconda/zramswapon
-ExecStop=/usr/libexec/anaconda/zramswapoff
+ExecStart=/usr/local/sbin/zramswapon
+ExecStop=/usr/local/sbin/zramswapoff
 RemainAfterExit=yes
 
 [Install]

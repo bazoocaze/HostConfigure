@@ -1,16 +1,28 @@
 #!/bin/bash
+######################################################################
+# Script....: setup.sh
+# Author....: Jose Ferreira
+# Date......: 2018-08-20 13:19
+# Info......: Setup program for the zramswap package
+######################################################################
 
 
-VERSION="1.02 2018-08-20 16:40"
-APPNAME="zramswap"
+VERSION="1.03 2018-08-20 20:20"
+# VERSION="1.02 2018-08-20 16:40"
+
+### Commandline config ###
 DEBUG=0
 DRYRUN=0
+
+### Other config ###
+APPDESC="The ZRAM-Swap Package"
 TARGET_BINDIR="/usr/local/sbin"
 TARGET_SVCDIR="/etc/systemd/system"
 SERVICES="zram-swap"
 BIN_FILES=("zramswapon" "zramswapoff")
 SVC_FILES=("zram-swap.service")
 
+### Constants ###
 P_INSTALLED=0
 P_NOT_INSTALLED=1
 P_PARTIAL_INSTALLED=2
@@ -220,14 +232,14 @@ do_install
 cmd_status()
 {
 local strstatus="$(verify)"
-	printf "%s package is %s\n" "${APPNAME}" "${strstatus}"
+	printf "%s is %s\n" "${APPDESC}" "${strstatus}"
 	return 0
 }
 
 
 cmd_help()
 {
-echo "${APPNAME} v${VERSION}"
+echo "${APPDESC} v${VERSION}"
 echo "Usage: [options] <command>"
 echo "Options:"
 echo " -d         debug mode"

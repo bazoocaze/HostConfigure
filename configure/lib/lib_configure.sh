@@ -78,6 +78,38 @@ is_no()
 }
 
 
+get_os_name()
+{
+if [ -z "${DISTRIB_ID}" ] ; then
+	. /etc/lsb-release
+	if [ -z "${DISTRIB_ID}" ] ; then
+		ERROR "Impossível obter o nome da versão do sistema (/etc/lsb-release)"
+		echo "unknow"
+		return 1
+	fi
+	DISTRIB_ID="$(echo "${DISTRIB_ID}" | tr 'A-Z' 'a-z')"
+fi
+printf "%s" "${DISTRIB_ID}" 
+return 0
+}
+
+
+get_os_version()
+{
+if [ -z "${DISTRIB_RELEASE}" ] ; then
+	. /etc/lsb-release
+	if [ -z "${DISTRIB_RELEASE}" ] ; then
+		ERROR "Impossível obter o número da versão do sistema (/etc/lsb-release)"
+		echo "0"
+		return 1
+	fi
+	DISTRIB_ID="$(echo "${DISTRIB_ID}" | tr 'A-Z' 'a-z')"
+fi
+printf "%s" "${DISTRIB_RELEASE}" 
+return 0
+}
+
+
 EXEC()
 {
 local ret
@@ -853,6 +885,7 @@ TEMPLATE()
 local inputname="$1"
 local prefix=("" "configure_" "template_" "install_")
 local suffix=("" ".sh")
+local topdirs osname osversion dir
 local templatename templatesubdir
 local path file pre suf ret
 
@@ -868,17 +901,23 @@ local path file pre suf ret
 		return $?
 	fi
 
-   for pre in "${prefix[@]}" ; do
-      for suf in "${suffix[@]}" ; do
-         file="${pre}${templatename}${suf}"
-         path="${DIR_TEMPLATES}/${templatesubdir}/${file}"
-			VERBOSE " template: $path"
-			if [ -x "$path" ] ; then
-				internal_run_template "${file}" "${path}" "$@"
-				return $?
-			fi
-      done
-   done
+	osname=$(get_os_name)
+	osversion=$(get_os_version)
+	topdirs=("${osname}${osversion}" "${osname}" ".")
+
+	for dir in "${topdirs[@]}" ; do
+	   for pre in "${prefix[@]}" ; do
+	      for suf in "${suffix[@]}" ; do
+	         file="${pre}${templatename}${suf}"
+	         path="${DIR_TEMPLATES}/${dir}/${templatesubdir}/${file}"
+				VERBOSE " template: $path"
+				if [ -x "$path" ] ; then
+					internal_run_template "${file}" "${path}" "$@"
+					return $?
+				fi
+	      done
+	   done
+	done
 
 	DIE "Template ${inputname} não encontrado"
 }

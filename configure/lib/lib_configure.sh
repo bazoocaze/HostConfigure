@@ -1,6 +1,7 @@
 #!/bin/bash
 
-LIB_CONFIGURE_VERSION="1.03 2018-08-22 11:38"
+LIB_CONFIGURE_VERSION="1.03b 2018-08-22 11:38"
+# LIB_CONFIGURE_VERSION="1.03 2018-08-22 11:38"
 # LIB_CONFIGURE_VERSION="1.02 2018-08-10 11:55"
 
 CL_NORMAL=$(echo -n -e "\e[0m")
@@ -330,7 +331,7 @@ local tmpfile="${file}.tmp"
 
 	ITEM "PASSO: Adicionar linha em ${file}: $line" 
 	if [ -f "$file" ] ; then
-		if grep -ql "$line" "$file" ; then
+		if grep -qF "$line" "$file" ; then
 			OK "arquivo ${file} nenhuma alteração necessária" ; return 0
 		fi
 	fi

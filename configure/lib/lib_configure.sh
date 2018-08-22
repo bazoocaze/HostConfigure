@@ -1,6 +1,7 @@
 #!/bin/bash
 
-LIB_CONFIGURE_VERSION="1.02 2018-08-10 11:55"
+LIB_CONFIGURE_VERSION="1.03 2018-08-22 11:38"
+# LIB_CONFIGURE_VERSION="1.02 2018-08-10 11:55"
 
 CL_NORMAL=$(echo -n -e "\e[0m")
 CL_ERROR=$(echo -n -e "\e[41m")
@@ -78,17 +79,47 @@ is_no()
 }
 
 
+# Determina o nome/versão do sistema operacional
+# Retorna o resultado nas variáveis:
+#  DISTRIB_ID      = centos|linuxmint|ubuntu
+#  DISTRIB_RELEASE = 1
+#  OS              = centos7|linuxmint19
+os_probe()
+{
+[ -n "${DISTRIB_ID}" ] && return 0
+
+if [ -f "/etc/lsb-release" ] ; then
+	. /etc/lsb-release
+	[ -z "${DISTRIB_ID}" ]      && ERROR "Impossível obter o nome da versão do sistema (/etc/lsb-release)"
+	[ -z "${DISTRIB_RELEASE}" ] && ERROR "Impossível obter o número da versão do sistema (/etc/lsb-release)"
+	if [ -n "${DISTRIB_ID}" -a -n "${DISTRIB_RELEASE}" ] ; then
+		DISTRIB_ID="$(echo "${DISTRIB_ID}" | tr 'A-Z' 'a-z')"
+		OS="${DISTRIB_ID}${DISTRIB_RELEASE}"
+		return 0
+	fi
+elif [ -f "/etc/os-release" ] ; then
+	. /etc/os-release
+	[ -z "${ID}" ]         && ERROR "Impossível obter o nome da versão do sistema (/etc/os-release)"
+	[ -z "${VERSION_ID}" ] && ERROR "Impossível obter o número da versão do sistema (/etc/os-release)"
+	if [ -n "${ID}" -a -n "${VERSION_ID}" ] ; then
+		DISTRIB_ID="$(echo "${ID}" | tr 'A-Z' 'a-z')"
+		DISTRIB_RELEASE="${VERSION_ID}"
+		OS="${DISTRIB_ID}${DISTRIB_RELEASE}"
+		return 0
+	fi
+else
+	ERROR "Impossível obter o nome/número da versão do sistema - distribuição desconhecida"
+fi
+DISTRIB_ID="unknow"
+DISTRIB_RELEASE="XX"
+OS="${DISTRIB_ID}${DISTRIB_RELEASE}"
+return 1
+}
+
+
 get_os_name()
 {
-if [ -z "${DISTRIB_ID}" ] ; then
-	. /etc/lsb-release
-	if [ -z "${DISTRIB_ID}" ] ; then
-		ERROR "Impossível obter o nome da versão do sistema (/etc/lsb-release)"
-		echo "unknow"
-		return 1
-	fi
-	DISTRIB_ID="$(echo "${DISTRIB_ID}" | tr 'A-Z' 'a-z')"
-fi
+os_probe
 printf "%s" "${DISTRIB_ID}" 
 return 0
 }
@@ -96,15 +127,7 @@ return 0
 
 get_os_version()
 {
-if [ -z "${DISTRIB_RELEASE}" ] ; then
-	. /etc/lsb-release
-	if [ -z "${DISTRIB_RELEASE}" ] ; then
-		ERROR "Impossível obter o número da versão do sistema (/etc/lsb-release)"
-		echo "0"
-		return 1
-	fi
-	DISTRIB_ID="$(echo "${DISTRIB_ID}" | tr 'A-Z' 'a-z')"
-fi
+os_probe
 printf "%s" "${DISTRIB_RELEASE}" 
 return 0
 }
@@ -1047,6 +1070,9 @@ echo "VERBOSE=$VERBOSE"          "|(definido pela opção -v)"
 echo "DEBUG=$DEBUG"              "|(definido pela opção -d)"
 echo "DRYRUN=$DRYRUN"            "|(definido pela opção -n)"
 echo "CONFTARGET=$CONFTARGET"    "|(target informado pelo usuário)"
+echo "DISTRIB_ID=${DISTRIB_ID}"            "|(nome da distribuição do sistema operacional)"
+echo "DISTRIB_RELEASE=${DISTRIB_RELEASE}"  "|(número de versão da distribuição)"
+echo "OS=${OS}"                            "|(nome+versão da distribuição)"
 } | column -t -s '|'
 
 {
@@ -1079,6 +1105,8 @@ export DIR_LIBCFG="$(realpath "$(dirname "${BASH_SOURCE[0]}")")"
 export DIR_EXTRA_FILES="$(realpath "${DIR_LIBCFG}/../extra_files")"
 export DIR_TEMPLATES="$(realpath "${DIR_LIBCFG}/../templates")"
 
+os_probe
+
 # export lib_configure_dir=$(dirname "
 
 while [ "$#" -gt "0" ] ; do
@@ -1095,7 +1123,7 @@ while [ "$#" -gt "0" ] ; do
 	shift
 done
 
-export CONFTARGET NO YES VERBOSE DEBUG DRYRUN
+export CONFTARGET NO YES VERBOSE DEBUG DRYRUN DISTRIB_ID DISTRIB_RELEASE OS
 
 [ -z "$CONFTARGET" ] && CONFTARGET="install"
 

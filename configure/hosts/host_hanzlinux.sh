@@ -18,3 +18,7 @@ STEP apt-get -y install mate-themes
 
 TEMPLATE install_sts
 
+STEP apt-get -y install docker.io docker-compose
+
+STEP update-alternatives --set editor /usr/bin/vim.basic
+

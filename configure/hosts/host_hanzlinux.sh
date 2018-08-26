@@ -4,6 +4,7 @@
 . ../lib/lib_configure.sh || exit 1
 
 
+
 STEP apt-get -y install vim mc git colordiff "bash-completion*"
 STEP apt-get -y install seahorse openssh-server chromium-browser sublime-text
 
@@ -21,4 +22,9 @@ TEMPLATE install_sts
 STEP apt-get -y install docker.io docker-compose
 
 STEP update-alternatives --set editor /usr/bin/vim.basic
+
+# Bug de delay de 30s quando initram não encontra o swap block device
+ADD_LINE /etc/initramfs-tools/conf.d/resume "RESUME=none" "^RESUME="
+
+TEMPLATE virt_server
 

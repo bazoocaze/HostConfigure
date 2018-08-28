@@ -52,3 +52,5 @@ STEP apt-get -y install virt-manager spice-client-gtk gir1.2-spiceclientgtk-3.0
 
 ADD_NSSCONF "hosts" "libvirt" "files"
 
+WRITE_FILE "/var/lib/AccountsService/users/libvirt-qemu" $'[User]\nSystemAccount=true'
+

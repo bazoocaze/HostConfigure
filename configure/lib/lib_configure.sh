@@ -95,6 +95,7 @@ if [ -f "/etc/lsb-release" ] ; then
 	[ -z "${DISTRIB_RELEASE}" ] && ERROR "Impossível obter o número da versão do sistema (/etc/lsb-release)"
 	if [ -n "${DISTRIB_ID}" -a -n "${DISTRIB_RELEASE}" ] ; then
 		DISTRIB_ID="$(echo "${DISTRIB_ID}" | tr 'A-Z' 'a-z')"
+		DISTRIB_RELEASE="$(echo "${DISTRIB_RELEASE}" | cut -d. -f1)"
 		OS="${DISTRIB_ID}${DISTRIB_RELEASE}"
 		return 0
 	fi
@@ -104,7 +105,7 @@ elif [ -f "/etc/os-release" ] ; then
 	[ -z "${VERSION_ID}" ] && ERROR "Impossível obter o número da versão do sistema (/etc/os-release)"
 	if [ -n "${ID}" -a -n "${VERSION_ID}" ] ; then
 		DISTRIB_ID="$(echo "${ID}" | tr 'A-Z' 'a-z')"
-		DISTRIB_RELEASE="${VERSION_ID}"
+		DISTRIB_RELEASE="$(echo "${VERSION_ID}" | cut -d. -f1)"
 		OS="${DISTRIB_ID}${DISTRIB_RELEASE}"
 		return 0
 	fi

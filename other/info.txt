@@ -1,7 +1,0 @@
-List info:
-
-test.mail@org.com
-test@test.com
-a3lmx7bdruulsm3pvh1f55k44@canarytokens.com
-other.test@org.com
-

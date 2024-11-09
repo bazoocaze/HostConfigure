@@ -1,0 +1,9 @@
+VCC: Deve ser 5V, não funcionou com o 3.3V do Arduino
+
+Placa: hw125
+
+Chip:
+lvc125a
+ww4722g
+txd19
+47d

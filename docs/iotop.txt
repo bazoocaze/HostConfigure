@@ -1,0 +1,4 @@
+
+sudo sysctl kernel.task_delayacct=1
+sudo iotop-c -Pa
+

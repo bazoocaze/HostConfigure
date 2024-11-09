@@ -1,0 +1,8 @@
+
+# Problema de shim sbat no boot
+1) Desativar secure boot
+2) sudo mokutil --set-sbat-policy delete
+3) Reboot
+4) Boot no linux
+5) Reboot
+6) Reativar secure boot

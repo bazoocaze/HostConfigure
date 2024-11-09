@@ -1,0 +1,3 @@
+
+**Gerar par de chaves RSA:
+ssh-keygen -t rsa -m pem -b 4096 -C $USER-001

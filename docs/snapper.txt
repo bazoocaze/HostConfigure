@@ -1,0 +1,5 @@
+
+# Prevent slow down
+snapper ls
+sudo btrfs qgroup show /
+sudo btrfs quota disable /

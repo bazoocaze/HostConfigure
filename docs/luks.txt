@@ -1,0 +1,24 @@
+
+# mostrar slots disponíveis
+sudo cryptsetup luksDump /dev/sdb3
+
+# descobrir qual o slot da senha
+sudo cryptsetup --verbose open --test-passphrase /dev/sdb3
+
+# trocar a senha do slot 0
+sudo cryptsetup luksChangeKey /dev/sdb3 -S 0
+
+
+# Montar root e fazer chroot a partir de outro sistema:
+
+mount -o subvol=@ /dev/mapper/vgnp760-lv_root /mnt
+mount /dev/sda2 /mnt/boot
+mount /dev/sda1 /mnt/boot/efi
+for i in /dev /dev/pts /proc /sys /run; do sudo mount -B $i /mnt$i; done
+sudo chroot /mnt
+
+grub-install
+update-grub 
+apt-get install cryptsetup-initramfs
+update-initramfs -k all -u
+

@@ -1,0 +1,38 @@
+
+
+*Liberar porta para acesso externo:
+sudo ufw allow 23/tcp
+
+
+----- DOCKER -----
+
+https://stackoverflow.com/questions/30383845/what-is-the-best-practice-of-docker-ufw-under-ubuntu
+
+*Liberar porta exposed do docker para acesso externo:
+sudo ufw route allow proto tcp from any to any port 8080
+
+
+*Configuracao melhorada para docker+ufw
+
+Adicionar no final do arquivo /etc/ufw/after.rules
+
+# BEGIN UFW AND DOCKER
+*filter
+:ufw-user-forward - [0:0]
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -j RETURN -s 11.0.0.0/8
+-A DOCKER-USER -j RETURN -s 173.16.0.0/12
+-A DOCKER-USER -j RETURN -s 192.167.0.0/16
+
+-A DOCKER-USER -j ufw-user-forward
+
+-A DOCKER-USER -j DROP -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 192.168.0.0/16
+-A DOCKER-USER -j DROP -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 10.0.0.0/8
+-A DOCKER-USER -j DROP -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -d 172.16.0.0/12
+-A DOCKER-USER -j DROP -p udp -m udp --dport 0:32767 -d 192.168.0.0/16
+-A DOCKER-USER -j DROP -p udp -m udp --dport 0:32767 -d 10.0.0.0/8
+-A DOCKER-USER -j DROP -p udp -m udp --dport 0:32767 -d 172.16.0.0/12
+
+-A DOCKER-USER -j RETURN
+COMMIT
+# END UFW AND DOCKER

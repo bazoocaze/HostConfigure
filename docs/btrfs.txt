@@ -1,0 +1,3 @@
+
+*Fazer backup/snapshot:
+btrfs subvolume snapshot -r / backup-snap-001

@@ -1,0 +1,6 @@
+
+nbfc-linux
+acpi-ec
+
+acer-wmi-battery
+

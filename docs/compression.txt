@@ -1,0 +1,7 @@
+
+# 7Z
+7za a -t7z -mx=1 -ms=on -mmt=4 archive.7z files
+
+# LZ4
+tar cf - directory | lz4 -z - output.lz4
+
